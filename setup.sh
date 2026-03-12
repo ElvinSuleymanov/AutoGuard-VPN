@@ -16,7 +16,9 @@
     IP_PIHOLE="172.29.144.30"
     IP_NGINX="172.29.144.40"
     IP_AUTH="172.29.144.50"
-
+    PORT_WG="51820"
+    PORT_AUTH="5000"
+    
 # Checks whether docker installed or not 
     error() {
         echo -e "\n❌ ERROR: $1\n" >&2
@@ -78,27 +80,27 @@
             * ) echo "Please answer yes or no.";;
         esac
     done
+
+# Writing to .env file
+    echo "WEBPASSWORD=$WEBPASSWORD" >> .env
+    echo "DETECTED_TZ=$DETECTED_TZ" >> .env
+    echo "IP_UNBOUND=$IP_UNBOUND" >> .env
+    echo "IP_PIHOLE=$IP_PIHOLE" >> .env
+    echo "IP_NGINX=$IP_NGINX" >> .env
+    echo "IP_WG=$IP_WG" >> .env
+    echo "IP_AUTH=$IP_AUTH" >> .env
+    echo "PORT_WG=$PORT_WG" >> .env
+    echo "PORT_AUTH=$PORT_AUTH" >> .env
+    echo "PUBLIC_IP=$PUBLIC_IP" >> .env
+    echo "REGISTRATION_TOKEN=$REGISTRATION_TOKEN" >> .env
+
 # Composing containers
     docker compose up -d
 # Other variables
     SERVER_PUBLIC_KEY = $(docker exec wireguard wg show wg0 public-key)
     WEBPASSWORD=$(openssl rand -base64 12) #Pi-hole UI password
     REGISTRATION_TOKEN=$(openssl rand -hex 32)
-
-
-# Writing to .env file
-
- cat <<-EOF > "$ENV_FILE"
-	WEBPASSWORD=$WEBPASSWORD
-	TIMEZONE=$DETECTED_TZ
-	IP_UNBOUND=$IP_UNBOUND
-	IP_PIHOLE=$IP_PIHOLE
-	IP_WIREGUARD=$IP_WIREGUARD
-	PUBLIC_IP=$PUBLIC_IP
-	WIREGUARD_PUBLIC_PORT=$USER_PORT
-	REGISTRATION_TOKEN=$REGISTRATION_TOKEN
-	SERVER_PUBLIC_KEY=$SERVER_PUBLIC_KEY
-	EOF
+    echo "SERVER_PUBLIC_KEY=$SERVER_PUBLIC_KEY" >> .env
 
 # Check if anything wrong
     if [ $? -eq 0 ]; then
@@ -109,21 +111,20 @@
         exit 1
     fi
 
-
 # Client scripts generation
     mkdir -p ./scripts
 
-    cat << EOF > setupclient.ps1
-    if ((Get-Command wireguard -ErrorAction SilentlyContinue) -or (Get-Command wg -ErrorAction SilentlyContinue)) {
-        Write-Output "WireGuard CLI is accessible."
-    } else {
-        Write-Output "Binary not found in PATH."
-    }
-    EOF
+    #Powershell scripting
+        SCRIPT_POWERSHELL="if ((Get-Command wireguard -ErrorAction SilentlyContinue) -or (Get-Command wg -ErrorAction SilentlyContinue)) {
+            Write-Output "WireGuard CLI is accessible."
+        } else {
+            Write-Output "Binary not found in PATH."
+        }"
 
-    cat << EOF > /scripts/setupclient.sh
-    #!/bin/bash
-    echo hello
-    EOF
+        echo $SCRIPT_POWERSHELL > setupclient.ps1
 
+    #Bash scripting
+        SCRIPT_BASH="!/bin/bash"
+        echo $SCRIPT_BASH > setupclient.sh
+        
     chmod +x ./scripts/*
