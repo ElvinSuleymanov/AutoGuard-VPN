@@ -10,7 +10,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${CYAN}${BOLD}=================================================="
-echo -e "   🛡️  WIREGUARD STACK AUTOMATION UTILITY"
+echo -e "   🛡️  WIREGUARD STACK AUTOMATION UTILITY   "
 echo -e "==================================================${NC}"
 
 # Checks whether docker installed or not 
@@ -43,8 +43,6 @@ https://docs.docker.com/compose/install/"
 fi
 
 echo "✅ Docker and Docker Compose are installed."
-
-
 
 
 # Distro detection (gonna use it in further versions)
@@ -89,20 +87,20 @@ done
 read -p "Enter WireGuard Public Port [${WIREGUARD_PUBLIC_PORT:-51820}]: " USER_PORT
 USER_PORT=${USER_PORT:-${WIREGUARD_PUBLIC_PORT:-51820}}
 
-read -p "Enter WireGuard container IP [${IP_WIREGUARD:-172.20.0.40}]: " input
-IP_WIREGUARD=${input:-${IP_WIREGUARD:-172.20.0.40}}
+read -p "Enter WireGuard container IP [${IP_WIREGUARD:-172.25.25.10}]: " input
+IP_WIREGUARD=${input:-${IP_WIREGUARD:-172.25.25.10}}
 
-read -p "Enter Unbound container IP [${IP_UNBOUND:-172.20.0.20}]: " input
-IP_UNBOUND=${input:-${IP_UNBOUND:-172.20.0.20}}
+read -p "Enter Unbound container IP [${IP_UNBOUND:-172.25.25.20}]: " input
+IP_UNBOUND=${input:-${IP_UNBOUND:-172.25.25.20}}
 
-read -p "Enter Pi-hole server IP [${IP_PIHOLE:-172.20.0.30}]: " input
-IP_PIHOLE=${input:-${IP_PIHOLE:-172.20.0.30}}
+read -p "Enter Pi-hole server IP [${IP_PIHOLE:-172.25.25.30}]: " input
+IP_PIHOLE=${input:-${IP_PIHOLE:-172.25.25.30}}
 
-read -p "Enter Nginx container IP [${IP_NGINX:-172.20.0.10}]: " input
-IP_NGINX=${input:-${IP_NGINX:-172.20.0.10}}
+read -p "Enter Nginx container IP [${IP_NGINX:-172.25.25.40}]: " input
+IP_NGINX=${input:-${IP_NGINX:-172.25.25.40}}
 
-read -p "Enter Auth Service IP [${IP_AUTH_SERVICE:-172.20.0.50}]: " input
-IP_AUTH_SERVICE=${input:-${IP_AUTH_SERVICE:-172.20.0.50}}
+read -p "Enter Auth Service IP [${IP_AUTH_SERVICE:-172.25.25.50}]: " input
+IP_AUTH_SERVICE=${input:-${IP_AUTH_SERVICE:-172.25.25.50}}
 
 if [ "$REUSE_ENV" = true ] && [ -n "$WEBPASSWORD" ]; then
     read -p "Keep existing Pi-hole web password? (y/n) [y]: " keep_pw
@@ -117,8 +115,6 @@ else
     WEBPASSWORD=$(openssl rand -base64 12)
     echo -e "Your password is: ${BOLD}${WEBPASSWORD}${NC}"
 fi
-
-
 
 
 echo -e "${CYAN}✔ Variables written to .env${NC}"
@@ -159,8 +155,6 @@ SERVER_PUBLIC_KEY=$SERVER_PUBLIC_KEY
 EOF
 
 
-
-
 if [ $? -eq 0 ]; then
     echo -e "\n${GREEN}${BOLD}✅ Stack is up and running!${NC}"
     docker compose ps
@@ -169,11 +163,7 @@ else
     exit 1
 fi
 
-
-
 # Client scripts generation
-
-
 
 mkdir -p ./scripts
 

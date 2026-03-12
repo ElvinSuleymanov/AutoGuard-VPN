@@ -4,4 +4,3 @@ if ((Get-Command wireguard -ErrorAction SilentlyContinue) -or (Get-Command wg -E
 } else {
     Write-Output "Binary not found in PATH."
 }
-
