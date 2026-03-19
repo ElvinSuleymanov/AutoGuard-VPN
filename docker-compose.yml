@@ -39,7 +39,7 @@ services:
   wg-sidecar:
     build:
       context: .
-      dockerfile: sidecar/Dockerfile.sidecar
+      dockerfile: ./sidecar/Dockerfile.sidecar
     container_name: wg_sidecar
     restart: unless-stopped
     network_mode: "service:wireguard"   
@@ -88,7 +88,7 @@ services:
   auth-service:
     build:
       context: .
-      dockerfile: auth/Dockerfile.auth
+      dockerfile: ./auth/Dockerfile.auth
       args:
         APP_PORT: ${PORT_AUTH}
     container_name: auth_service
