@@ -90,7 +90,7 @@
     REGISTRATION_TOKEN=$(openssl rand -hex 32)
     SIDECAR_TOKEN=$(openssl rand -hex 32)
 # Writing to .env file
-    touch $ENV_FILE
+    > "$ENV_FILE"
     chmod 600 "$ENV_FILE"
     echo "DETECTED_TZ=$DETECTED_TZ"               >> "$ENV_FILE"
     echo "IP_UNBOUND=$IP_UNBOUND"                 >> "$ENV_FILE"
@@ -107,6 +107,7 @@
     echo "PORT_SIDECAR=$PORT_SIDECAR"             >> "$ENV_FILE"
     echo "SIDECAR_TOKEN=$SIDECAR_TOKEN"           >> "$ENV_FILE"
 # Composing containers
+
     docker compose up -d
     COMPOSE_EXIT=$?
     SERVER_PUBLIC_KEY=$(docker exec wireguard wg show wg0 public-key)
