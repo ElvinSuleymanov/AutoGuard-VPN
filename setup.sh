@@ -10,16 +10,18 @@
     echo -e "${CYAN}${BOLD}=================================================="
     echo -e "   🛡️  WIREGUARD STACK AUTOMATION UTILITY   "
     echo -e "==================================================${NC}"
+
 # Change Defaults (Recommended)
     IP_WG="172.29.144.10"
     IP_UNBOUND="172.29.144.20"
     IP_PIHOLE="172.29.144.30"
     IP_NGINX="172.29.144.40"
     IP_AUTH="172.29.144.50"
+    IP_SIDECAR="172.29.144.60"
     PORT_WG="51820"
     PORT_AUTH="5000"
-    
-# Checks whether docker installed or not 
+    PORT_SIDECAR="6000"
+# Checks whether docker installed or not
     error() {
         echo -e "\n❌ ERROR: $1\n" >&2
         exit 1
@@ -65,48 +67,53 @@
     echo "Detected Timezone: $DETECTED_TZ"
 
     ENV_FILE=".env"
-    REUSE_ENV=false
-
 
 # Try to fetch public ip either enter it manually if something wrong
     FETCHED_IP=$(curl -s --max-time 5 https://ifconfig.me/ || echo "")
     SUGGESTED_IP="${PUBLIC_IP:-$FETCHED_IP}"
 
     while true; do
-        read -p "Is ${BOLD}${SUGGESTED_IP}${NC} your WireGuard server IP? (y/n): " yn
+        echo -e "Is ${BOLD}${SUGGESTED_IP}${NC} your WireGuard server IP? (y/n): "
+        read -r yn
         case $yn in
             [Yy]* ) PUBLIC_IP="$SUGGESTED_IP"; break;;
-            [Nn]* ) read -p "Enter your WireGuard server IP address: " PUBLIC_IP; break;;
+            [Nn]* )
+                echo -n "Enter your WireGuard server IP address: "
+                read -r PUBLIC_IP
+                break;;
             * ) echo "Please answer yes or no.";;
         esac
     done
 
-# Writing to .env file
-        > "$ENV_FILE"          
-    chmod 600 "$ENV_FILE"  
-    echo "DETECTED_TZ=$DETECTED_TZ" >> .env
-    echo "IP_UNBOUND=$IP_UNBOUND" >> .env
-    echo "IP_PIHOLE=$IP_PIHOLE" >> .env
-    echo "IP_NGINX=$IP_NGINX" >> .env
-    echo "IP_WG=$IP_WG" >> .env
-    echo "IP_AUTH=$IP_AUTH" >> .env
-    echo "PORT_WG=$PORT_WG" >> .env
-    echo "PORT_AUTH=$PORT_AUTH" >> .env
-    echo "PUBLIC_IP=$PUBLIC_IP" >> .env
-
-# Composing containers
-    docker compose up -d
 # Other variables
-    SERVER_PUBLIC_KEY=$(docker exec wireguard wg show wg0 public-key)
     WEBPASSWORD=$(openssl rand -base64 12) #Pi-hole UI password
     REGISTRATION_TOKEN=$(openssl rand -hex 32)
-
-    echo "SERVER_PUBLIC_KEY=$SERVER_PUBLIC_KEY" >> .env
-    echo "WEBPASSWORD=$WEBPASSWORD" >> .env
-    echo "REGISTRATION_TOKEN=$REGISTRATION_TOKEN" >> .env
+    SIDECAR_TOKEN=$(openssl rand -hex 32)
+# Writing to .env file
+    > "$ENV_FILE"
+    chmod 600 "$ENV_FILE"
+    echo "DETECTED_TZ=$DETECTED_TZ"               >> "$ENV_FILE"
+    echo "IP_UNBOUND=$IP_UNBOUND"                 >> "$ENV_FILE"
+    echo "IP_PIHOLE=$IP_PIHOLE"                   >> "$ENV_FILE"
+    echo "IP_NGINX=$IP_NGINX"                     >> "$ENV_FILE"
+    echo "IP_WG=$IP_WG"                           >> "$ENV_FILE"
+    echo "IP_AUTH=$IP_AUTH"                       >> "$ENV_FILE"
+    echo "PORT_WG=$PORT_WG"                       >> "$ENV_FILE"
+    echo "PORT_AUTH=$PORT_AUTH"                   >> "$ENV_FILE"
+    echo "PUBLIC_IP=$PUBLIC_IP"                   >> "$ENV_FILE"
+    echo "WEBPASSWORD=$WEBPASSWORD"               >> "$ENV_FILE"
+    echo "REGISTRATION_TOKEN=$REGISTRATION_TOKEN" >> "$ENV_FILE"
+    echo "IP_SIDECAR=$IP_SIDECAR"                 >> "$ENV_FILE"
+    echo "PORT_SIDECAR=$PORT_SIDECAR"             >> "$ENV_FILE"
+    echo "SIDECAR_TOKEN=$SIDECAR_TOKEN"           >> "$ENV_FILE"
+# Composing containers
+    docker compose up -d
+    COMPOSE_EXIT=$?
+    SERVER_PUBLIC_KEY=$(docker exec wireguard wg show wg0 public-key)
+    echo "SERVER_PUBLIC_KEY=$SERVER_PUBLIC_KEY" >> "$ENV_FILE"
 
 # Check if anything wrong
-    if [ $? -eq 0 ]; then
+    if [ $COMPOSE_EXIT -eq 0 ]; then
         echo -e "\n${GREEN}${BOLD}✅ Stack is up and running!${NC}"
         docker compose ps
     else
@@ -114,6 +121,7 @@
         exit 1
     fi
 
+ 
 # Client scripts generation
 
     mkdir -p ./scripts
@@ -132,6 +140,7 @@
         echo $SCRIPT_BASH > setupclient.sh
         
     chmod +x ./scripts/*
+
 
 
 # Configuration of reverse proxy(This section will only be used for secure communication during installation phase)

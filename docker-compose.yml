@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     hostname: unbound
     volumes:
-      - ./shared/unbound:/opt/unbound/etc/unbound/
+      - ./unbound:/opt/unbound/etc/unbound/
     networks:
       private_network:
         ipv4_address: ${IP_UNBOUND}
@@ -26,11 +26,33 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
+    cap_drop:
+      - ALL
     sysctls:
       net.ipv4.conf.all.src_valid_mark: 1
       net.ipv4.ip_forward: 1
     volumes:
-      - ./shared/wireguard:/config
+      - ./wireguard:/config
+    env_file:
+      - .env
+
+  wg-sidecar:
+    build:
+      context: .
+      dockerfile: sidecar/Dockerfile.sidecar
+    container_name: wg_sidecar
+    restart: unless-stopped
+    network_mode: "service:wireguard"   
+    depends_on:
+      - wireguard
+    cap_add:
+      - NET_ADMIN                      
+    cap_drop:
+      - ALL
+    volumes:
+      - ./wireguard:/config             
+    environment:
+      - SIDECAR_TOKEN=${SIDECAR_TOKEN}
     env_file:
       - .env
 
@@ -63,6 +85,25 @@ services:
       WEBPASSWORD: ${WEB_PASSWORD}
       PIHOLE_DNS_: "${IP_UNBOUND}#5053"
 
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth/Dockerfile.auth
+      args:
+        APP_PORT: ${PORT_AUTH}
+    container_name: auth_service
+    restart: unless-stopped
+    depends_on:
+      - wg-sidecar
+    networks:
+      private_network:
+        ipv4_address: ${IP_AUTH}        
+    environment:
+      - SIDECAR_URL=http://wg-sidecar:${PORT_SIDECAR}
+      - SIDECAR_TOKEN=${SIDECAR_TOKEN}
+    env_file:
+      - .env
+
   nginx-proxy:
     image: nginx:latest
     container_name: nginx_proxy
@@ -70,27 +111,17 @@ services:
     ports:
       - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
     depends_on:
       - auth-service
     networks:
       private_network:
         ipv4_address: ${IP_NGINX}
-  auth-service:
-      build:
-        context: .
-        dockerfile: auth/Dockerfile.auth
-        args:
-          APP_PORT: ${PORT_AUTH}
-      ports:
-        - "${PORT_AUTH}:${PORT_AUTH}"
-      container_name: auth_service
-      restart: unless-stopped
-      env_file:
-        - .env
-      networks:
-        private_network:
-          ipv4_address: ${IP_AUTH}
 
-
+networks:
+  private_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.144.0/24
