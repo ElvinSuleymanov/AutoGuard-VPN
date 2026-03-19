@@ -17,7 +17,7 @@ def get_pubkey():
 @app.get("/peers", dependencies=[Security(verify)])
 def list_peers():
     """
-    `wg show <iface> dump` columns:
+    `wg show wg0 dump` columns:
     public-key  preshared-key  endpoint  allowed-ips  latest-handshake  rx  tx  persistent-keepalive
     First line is the server itself — skip it.
     """
