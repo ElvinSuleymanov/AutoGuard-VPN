@@ -109,6 +109,12 @@
 # Composing containers
 
     docker compose up -d
+    echo "Waiting for app to be ready..."
+    until [ "$(docker compose ps --status running -q | wc -l)" -eq "$(docker compose ps -q | wc -l)" ]; do
+    sleep 2
+    done
+echo "All services are up!"
+echo "App is ready!"
     COMPOSE_EXIT=$?
     SERVER_PUBLIC_KEY=$(docker exec wireguard wg show wg0 public-key)
     echo "SERVER_PUBLIC_KEY=$SERVER_PUBLIC_KEY" >> "$ENV_FILE"
