@@ -108,7 +108,7 @@
     echo "SIDECAR_TOKEN=$SIDECAR_TOKEN"           >> "$ENV_FILE"
 # Composing containers
 
-    docker compose up -d
+    docker compose up -d --wait
     echo "Waiting for app to be ready..."
     until [ "$(docker compose ps --status running -q | wc -l)" -eq "$(docker compose ps -q | wc -l)" ]; do
     sleep 2
