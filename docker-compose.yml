@@ -48,7 +48,13 @@ services:
       WEBPASSWORD: ${WEBPASSWORD}
       PIHOLE_DNS_: "${IP_UNBOUND}#5053"
     healthcheck:
-      test: ["CMD-SHELL", "dig +short +norecurse +retry=0 @127.0.0.1 google.com > /dev/null || exit 1 && curl -f http://127.0.0.1/admin/index.php > /dev/null || exit 1"]
+      test: [
+        "CMD-SHELL", 
+        "dig +short +timeout=2 @127.0.0.1 google.com > /dev/null || \
+        dig +short +timeout=2 @${IP_UNBOUND} -p 5053 google.com > /dev/null || \
+        dig +short +timeout=2 @8.8.8.8 google.com > /dev/null || \
+        exit 1"
+      ]
       interval: 10s
       timeout: 5s
       retries: 5
