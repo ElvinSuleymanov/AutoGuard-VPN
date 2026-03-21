@@ -17,10 +17,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    sysctls:
-      net.core.rmem_max: 1048576
-      net.core.wmem_max: 1048576
-
   pihole:
     image: pihole/pihole:latest
     container_name: pihole
@@ -34,6 +30,7 @@ services:
     dns:
       - ${IP_UNBOUND}
       - 127.0.0.1
+      - 1.1.1.1
     volumes:
       - ./etc-pihole/:/etc/pihole/
       - ./etc-dnsmasq.d/:/etc/dnsmasq.d/
