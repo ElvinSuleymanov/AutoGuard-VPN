@@ -5,9 +5,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY auth.py .
-COPY .env .
+COPY main.py .
 
 EXPOSE ${APP_PORT}
 
-CMD ["python", "auth.py"]
+CMD ["python", "main.py"]
