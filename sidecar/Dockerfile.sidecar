@@ -6,13 +6,11 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py .
-COPY models.py .
-COPY helpers.py .
 
-ENV PORT_SIDECAR=8080
+
+ENV PORT_SIDECAR=6000
 
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT_SIDECAR}"]
