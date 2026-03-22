@@ -3,7 +3,7 @@ import subprocess
 from fastapi import FastAPI, Security
 from flask import  jsonify
 from models import PeerAdd
-
+from helpers import verify, wg
 
 app = FastAPI()
 
