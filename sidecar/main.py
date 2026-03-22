@@ -1,6 +1,9 @@
 import os
+import subprocess
 from fastapi import FastAPI, Security
+from flask import  jsonify
 from models import PeerAdd
+
 
 app = FastAPI()
 
@@ -8,7 +11,14 @@ app = FastAPI()
 SIDECAR_TOKEN = os.environ["SIDECAR_TOKEN"]
 WG_INTERFACE  = os.environ.get("WG_INTERFACE", "wg0")
 
-
+@app.get("/health")
+def health_check():
+    try:
+        subprocess.run(["wg show wg0"], check=True, capture_output=True)
+        return jsonify({"status":"ok"})
+    except:
+        return jsonify({"status":"wg0 is not ready"})
+    
 @app.get("/pubkey", dependencies=[Security(verify)])
 def get_pubkey():
     return {"public_key": wg("show", WG_INTERFACE, "public-key")}

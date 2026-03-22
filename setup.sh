@@ -170,5 +170,3 @@
     sed -i -E "s#server_name public_ip;#server_name $PUBLIC_IP;#" "$NGINX_CONF"
 
 # Configuration of wireguard
-    mkdir ./wireguard/keys;
-    openssl 
