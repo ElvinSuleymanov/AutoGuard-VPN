@@ -112,10 +112,10 @@ services:
     env_file:
       - .env
     healthcheck:
-      test: ["CMD-SHELL", python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:6000/health').status)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:${PORT_SIDECAR}/health\")'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 15s
 
   auth-service:
@@ -135,10 +135,10 @@ services:
     env_file:
       - .env
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${PORT_AUTH}/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:${PORT_AUTH}/health\")'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 15s
 
   nginx-proxy:
