@@ -12,10 +12,9 @@ pubkey = os.environ["SERVER_PUBLIC_KEY"]
 @app.get("/health")
 def health_check():
     try:
-        subprocess.run(["wg", "show", "wg0"], check=True, capture_output=True)
         return {"status":"ok"}
     except:
-        return {"status":"wg0 is not ready"}
+        return {"status":"auth service is not ready"}
 
 @app.get("/", dependencies=[Security(verify)])
 def authenticate_client_script():
