@@ -92,8 +92,17 @@
     REGISTRATION_TOKEN=$(openssl rand -hex 32)
     SIDECAR_TOKEN=$(openssl rand -hex 32)
     #private key generation
-        # mkdir -p ./wireguard/keys
-        # openssl 
+        mkdir -p ./wireguard/keys
+        openssl pkey -in /tmp/wg_server_private.pem -outform DER | tail -c 32 | base64
+        SERVER_PRIVATE_KEY=$(openssl pkey -in /tmp/wg_server_private.pem -outform DER | tail -c 32 | base64)
+        #SERVER_PUBLIC_KEY=$(openssl pkey -in /tmp/wg_server_private.pem -pubout -outform DER | tail -c 32 | base64)
+        rm -f /tmp/wg_server_private.pem
+
+        echo "$SERVER_PRIVATE_KEY" > ./wireguard/keys/server_private.key
+        #echo "$SERVER_PUBLIC_KEY"  > ./wireguard/keys/server_public.key
+
+        chmod 600 ./wireguard/keys/server_private.key
+        #chmod 644 ./wireguard/keys/server_public.key
 # Writing to .env file
     > "$ENV_FILE"
     chmod 600 "$ENV_FILE"
