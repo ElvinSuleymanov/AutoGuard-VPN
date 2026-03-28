@@ -3,7 +3,7 @@ import requests;
 import subprocess
 from fastapi import FastAPI, Security
 from helpers import verify, is_valid_wg_pubkey
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from fastapi import HTTPException
 
 
