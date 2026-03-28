@@ -157,7 +157,7 @@ services:
       private_network:
         ipv4_address: ${IP_NGINX}
     healthcheck:
-      test: ["CMD-SHELL", "curl -kf https://localhost || exit 1"]
+      test: ["CMD-SHELL", "curl --cacert ./certs/fullchain.pem https://localhost || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
