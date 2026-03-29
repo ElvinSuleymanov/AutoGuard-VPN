@@ -1,14 +1,26 @@
 import os
+import subprocess
 from fastapi import FastAPI, Security
-from models import PeerAdd
+from helpers import verify, wg
+from pydantic import BaseModel
+
 
 app = FastAPI()
-
 
 SIDECAR_TOKEN = os.environ["SIDECAR_TOKEN"]
 WG_INTERFACE  = os.environ.get("WG_INTERFACE", "wg0")
 
+class PeerAdd(BaseModel):
+    public_key: str
 
+@app.get("/health")
+def health_check():
+    try:
+        subprocess.run(["wg show wg0"], check=True, capture_output=True)
+        return {"status":"ok"}
+    except:
+        return {"status":"wg0 is not ready"}
+    
 @app.get("/pubkey", dependencies=[Security(verify)])
 def get_pubkey():
     return {"public_key": wg("show", WG_INTERFACE, "public-key")}
@@ -38,6 +50,7 @@ def list_peers():
 
 
 @app.post("/peers", status_code=201, dependencies=[Security(verify)])
+
 def add_peer(peer: PeerAdd):
     allowed = f"{peer.allowed_ip}/32"
     wg("set", WG_INTERFACE, "peer", peer.public_key, "allowed-ips", allowed)
@@ -47,3 +60,5 @@ def add_peer(peer: PeerAdd):
 @app.delete("/peers/{public_key}", status_code=204, dependencies=[Security(verify)])
 def remove_peer(public_key: str):
     wg("set", WG_INTERFACE, "peer", public_key, "remove")
+
+

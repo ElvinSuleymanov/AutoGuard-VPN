@@ -12,6 +12,7 @@
     echo -e "==================================================${NC}"
 
 # Change Defaults (Recommended)
+    SUBNET="172.29.144.0/24" #Don't forget CIDR 
     IP_WG="172.29.144.10"
     IP_UNBOUND="172.29.144.20"
     IP_PIHOLE="172.29.144.30"
@@ -21,6 +22,7 @@
     PORT_WG="51820"
     PORT_AUTH="5000"
     PORT_SIDECAR="6000"
+
 # Checks whether docker installed or not
     error() {
         echo -e "\n❌ ERROR: $1\n" >&2
@@ -85,13 +87,40 @@
         esac
     done
 
-# Other variables
+# Token generating
     WEBPASSWORD=$(openssl rand -base64 12) #Pi-hole UI password
     REGISTRATION_TOKEN=$(openssl rand -hex 32)
     SIDECAR_TOKEN=$(openssl rand -hex 32)
+    #private and public key generation
+    openssl genpkey -algorithm X25519 -out /tmp/wg_server_private.pem
+    SERVER_PRIVATE_KEY=$(openssl pkey -in /tmp/wg_server_private.pem -outform DER | tail -c 32 | base64)
+    SERVER_PUBLIC_KEY=$(openssl pkey -in /tmp/wg_server_private.pem -pubout -outform DER | tail -c 32 | base64)
+    rm -f /tmp/wg_server_private.pem
+    echo "$SERVER_PRIVATE_KEY" > ./wireguard/keys/server_private.key
+    echo "$SERVER_PUBLIC_KEY"  > ./wireguard/keys/server_public.key
+    chmod 600 ./wireguard/keys/server_private.key
+    chmod 644 ./wireguard/keys/server_public.key
+# Configuration of reverse proxy(This section will only be used for secure communication during installation phase)
+
+    NGINX_CONF="./nginx/nginx.conf"
+    CERTS_DIR="./certs"
+    mkdir -p "$CERTS_DIR"
+
+        openssl req -x509 -nodes -days 365 \
+            -newkey rsa:2048 \
+            -keyout "$CERTS_DIR/privkey.pem" \
+            -out "$CERTS_DIR/fullchain.pem" \
+            -subj "/CN=localhost"
+
+        echo "Self-signed certificates generated in $CERTS_DIR"
+
+
+    sed -i -E "s#proxy_pass http://[^:]+:[0-9]+;#proxy_pass http://${IP_AUTH}:${PORT_AUTH};#" "$NGINX_CONF"
+    sed -i -E "s#server_name public_ip;#server_name $PUBLIC_IP;#" "$NGINX_CONF"
 # Writing to .env file
     > "$ENV_FILE"
     chmod 600 "$ENV_FILE"
+    echo "SUBNET=$SUBNET"                         >> "$ENV_FILE"
     echo "DETECTED_TZ=$DETECTED_TZ"               >> "$ENV_FILE"
     echo "IP_UNBOUND=$IP_UNBOUND"                 >> "$ENV_FILE"
     echo "IP_PIHOLE=$IP_PIHOLE"                   >> "$ENV_FILE"
@@ -150,19 +179,7 @@
 
 
 
-# Configuration of reverse proxy(This section will only be used for secure communication during installation phase)
-    NGINX_CONF="./nginx/nginx.conf"
-    CERTS_DIR="./certs"
-    mkdir -p "$CERTS_DIR"
-
-        openssl req -x509 -nodes -days 365 \
-            -newkey rsa:2048 \
-            -keyout "$CERTS_DIR/privkey.pem" \
-            -out "$CERTS_DIR/fullchain.pem" \
-            -subj "/CN=localhost"
-
-        echo "Self-signed certificates generated in $CERTS_DIR"
 
 
-    sed -i -E "s#proxy_pass http://[^:]+:[0-9]+;#proxy_pass http://${IP_AUTH}:${PORT_AUTH};#" "$NGINX_CONF"
-    sed -i -E "s#server_name public_ip;#server_name $PUBLIC_IP;#" "$NGINX_CONF"
+
+# Configuration of wireguard

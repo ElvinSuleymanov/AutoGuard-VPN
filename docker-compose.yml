@@ -50,7 +50,7 @@ services:
     healthcheck:
       test: [
         "CMD-SHELL", 
-        "dig +short +timeout=2 @127.0.0.1 google.com > /dev/null || \
+         "dig +short +timeout=2 @127.0.0.1 google.com > /dev/null || \
         dig +short +timeout=2 @${IP_UNBOUND} -p 5053 google.com > /dev/null || \
         dig +short +timeout=2 @8.8.8.8 google.com > /dev/null || \
         exit 1"
@@ -81,6 +81,12 @@ services:
       net.ipv4.ip_forward: 1
     env_file:
       - .env
+    volumes:
+      - ./wireguard:/config
+    environment:
+        - PEERDNS=${IP_PIHOLE}
+        - SERVERURL=${PUBLIC_IP}
+        - SERVERPORT=${PORT_WG}
     healthcheck:
       test: ["CMD", "wg", "show", "wg0"]
       interval: 10s
@@ -106,10 +112,10 @@ services:
     env_file:
       - .env
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${PORT_SIDECAR}/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:${PORT_SIDECAR}/health\")'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 15s
 
   auth-service:
@@ -129,10 +135,10 @@ services:
     env_file:
       - .env
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${PORT_AUTH}/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:${PORT_AUTH}/health\")'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 15s
 
   nginx-proxy:
@@ -151,14 +157,15 @@ services:
       private_network:
         ipv4_address: ${IP_NGINX}
     healthcheck:
-      test: ["CMD-SHELL", "curl -kf https://localhost || exit 1"]
+      test: ["CMD-SHELL", "curl --cacert ./certs/fullchain.pem https://localhost || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
 
 networks:
   private_network:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.29.144.0/24
+        - subnet: ${SUBNET}
