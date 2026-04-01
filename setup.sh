@@ -19,6 +19,7 @@
     IP_NGINX="172.29.144.40"
     IP_AUTH="172.29.144.50"
     IP_SIDECAR="172.29.144.60"
+    INTERNAL_SUBNET="10.13.26.0"
     PORT_WG="51820"
     PORT_AUTH="5000"
     PORT_SIDECAR="6000"
@@ -96,10 +97,10 @@
     SERVER_PRIVATE_KEY=$(openssl pkey -in /tmp/wg_server_private.pem -outform DER | tail -c 32 | base64)
     SERVER_PUBLIC_KEY=$(openssl pkey -in /tmp/wg_server_private.pem -pubout -outform DER | tail -c 32 | base64)
     rm -f /tmp/wg_server_private.pem
-    echo "$SERVER_PRIVATE_KEY" > ./wireguard/keys/server_private.key
-    echo "$SERVER_PUBLIC_KEY"  > ./wireguard/keys/server_public.key
-    chmod 600 ./wireguard/keys/server_private.key
+    sed -i "s/your-private-key/${SERVER_PRIVATE_KEY}/g" ./wireguard/wg_confs/wg0.conf
+    echo "$SERVER_PUBLIC_KEY"  > ./wireguard/wg0.conf/server_public.key
     chmod 644 ./wireguard/keys/server_public.key
+    
 # Configuration of reverse proxy(This section will only be used for secure communication during installation phase)
 
     NGINX_CONF="./nginx/nginx.conf"
@@ -121,6 +122,7 @@
     > "$ENV_FILE"
     chmod 600 "$ENV_FILE"
     echo "SUBNET=$SUBNET"                         >> "$ENV_FILE"
+    echo "INTERNAL_SUBNET=$SUBNET"                >> "$ENV_FILE"
     echo "DETECTED_TZ=$DETECTED_TZ"               >> "$ENV_FILE"
     echo "IP_UNBOUND=$IP_UNBOUND"                 >> "$ENV_FILE"
     echo "IP_PIHOLE=$IP_PIHOLE"                   >> "$ENV_FILE"

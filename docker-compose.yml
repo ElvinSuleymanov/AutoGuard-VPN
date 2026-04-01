@@ -87,6 +87,7 @@ services:
         - PEERDNS=${IP_PIHOLE}
         - SERVERURL=${PUBLIC_IP}
         - SERVERPORT=${PORT_WG}
+        - INTERNAL_SUBNET=${INTERNAL_SUBNET}
     healthcheck:
       test: ["CMD", "wg", "show", "wg0"]
       interval: 10s
