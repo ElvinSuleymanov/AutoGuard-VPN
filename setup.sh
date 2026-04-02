@@ -97,7 +97,7 @@
     SERVER_PRIVATE_KEY=$(openssl pkey -in /tmp/wg_server_private.pem -outform DER | tail -c 32 | base64)
     SERVER_PUBLIC_KEY=$(openssl pkey -in /tmp/wg_server_private.pem -pubout -outform DER | tail -c 32 | base64)
     rm -f /tmp/wg_server_private.pem
-    sed -i "s/your-private-key/${SERVER_PRIVATE_KEY}/g" ./wireguard/wg_confs/wg0.conf
+    sed -i "s|your-private-key|${SERVER_PRIVATE_KEY}|g" ./wireguard/wg_confs/wg0.conf
     echo "$SERVER_PUBLIC_KEY"  > ./wireguard/wg0.conf/server_public.key
     chmod 644 ./wireguard/keys/server_public.key
     
