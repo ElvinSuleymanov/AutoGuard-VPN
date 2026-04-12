@@ -179,9 +179,4 @@
         
     chmod +x ./scripts/*
 
-
-
-
-
-
 # Configuration of wireguard
