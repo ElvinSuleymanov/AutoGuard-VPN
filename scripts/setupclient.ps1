@@ -1,5 +1,12 @@
 #Run as Administrator
 
+$ServerPublicIp = "PLACEHOLDER_SERVER_PUBLIC_IP"
+$ServerPort = "PLACEHOLDER_SERVER_PORT"
+$ServerPublicKey = "PLACEHOLDER_PUBLIC_KEY"
+$InterfaceName = "PLACEHOLDER_INTERFACE_NAME"
+$AuthKey = "PLACEHOLDER_AUTH_KEY"
+
+
 function CheckPrivileges() {
     $IsAdmin = [bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     if (!$IsAdmin) {
