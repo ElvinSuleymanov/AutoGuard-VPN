@@ -108,7 +108,6 @@
 
     WEBPASSWORD=$(generate_password)
     REGISTRATION_TOKEN=$(generate_token 32)
-    SIDECAR_TOKEN=$(generate_token 32)
 
     generate_wireguard_keys() {
         local tmp_pem="/tmp/wg_server_private_$$.pem"
@@ -190,7 +189,6 @@
         write_env_var PUBLIC_IP            "$PUBLIC_IP"
         write_env_var WEBPASSWORD          "$WEBPASSWORD"
         write_env_var REGISTRATION_TOKEN   "$REGISTRATION_TOKEN"
-        write_env_var SIDECAR_TOKEN        "$SIDECAR_TOKEN"
     }
 
     write_env_file
