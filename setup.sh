@@ -12,7 +12,7 @@
     echo -e "==================================================${NC}"
 
 # Change Defaults (Recommended)
-    SUBNET="172.29.144.0/24" #Don't forget CIDR 
+    SUBNET="172.29.144.0/24"
     IP_WG="172.29.144.10"
     IP_UNBOUND="172.29.144.20"
     IP_PIHOLE="172.29.144.30"
@@ -23,12 +23,16 @@
     PORT_WG="51820"
     PORT_AUTH="5000"
     PORT_SIDECAR="6000"
+    INTERFACE_NAME="wg0"
 
 # Checks whether docker installed or not
     error() {
         echo -e "\n❌ ERROR: $1\n" >&2
         exit 1
     }
+
+    log_success() { echo -e "${GREEN}${BOLD}✅ $1${NC}"; }
+    log_warn()    { echo -e "${YELLOW}⚠️  $1${NC}"; }
 
     check_command() {
         command -v "$1" >/dev/null 2>&1 || error "$1 is not installed.
@@ -58,97 +62,163 @@
 
 # Distro detection (gonna use it in further versions)
     if [ -f /etc/os-release ]; then
+        # shellcheck source=/dev/null
         . /etc/os-release
         echo "Running on: $ID"
     fi
 
 # Timezone Detection
-    DETECTED_TZ=$(timedatectl 2>/dev/null | grep "Time zone" | awk '{print $3}')
-    if [ -z "$DETECTED_TZ" ]; then
-        DETECTED_TZ=$(cat /etc/timezone 2>/dev/null || echo "UTC")
-    fi
-    echo "Detected Timezone: $DETECTED_TZ"
+    detect_timezone() {
+        DETECTED_TZ=$(timedatectl 2>/dev/null | grep "Time zone" | awk '{print $3}')
+        if [ -z "$DETECTED_TZ" ]; then
+            DETECTED_TZ=$(cat /etc/timezone 2>/dev/null || echo "UTC")
+        fi
+        echo "Detected Timezone: $DETECTED_TZ"
+    }
+
+    detect_timezone
 
     ENV_FILE=".env"
 
 # Try to fetch public ip either enter it manually if something wrong
-    FETCHED_IP=$(curl -s --max-time 5 https://ifconfig.me/ || echo "")
-    SUGGESTED_IP="${PUBLIC_IP:-$FETCHED_IP}"
+    detect_public_ip() {
+        local fetched suggested
+        fetched=$(curl -s --max-time 5 https://ifconfig.me/ || echo "")
+        suggested="${PUBLIC_IP:-$fetched}"
 
-    while true; do
-        echo -e "Is ${BOLD}${SUGGESTED_IP}${NC} your WireGuard server IP? (y/n): "
-        read -r yn
-        case $yn in
-            [Yy]* ) PUBLIC_IP="$SUGGESTED_IP"; break;;
-            [Nn]* )
-                echo -n "Enter your WireGuard server IP address: "
-                read -r PUBLIC_IP
-                break;;
-            * ) echo "Please answer yes or no.";;
-        esac
-    done
+        while true; do
+            echo -e "Is ${BOLD}${suggested}${NC} your WireGuard server IP? (y/n): "
+            read -r yn
+            case $yn in
+                [Yy]* ) PUBLIC_IP="$suggested"; break ;;
+                [Nn]* )
+                    echo -n "Enter your WireGuard server IP address: "
+                    read -r PUBLIC_IP
+                    break ;;
+                * ) echo "Please answer yes or no." ;;
+            esac
+        done
+    }
+
+    detect_public_ip
 
 # Token generating
-    WEBPASSWORD=$(openssl rand -base64 12) #Pi-hole UI password
-    REGISTRATION_TOKEN=$(openssl rand -hex 32)
-    SIDECAR_TOKEN=$(openssl rand -hex 32)
-    #private and public key generation
-    openssl genpkey -algorithm X25519 -out /tmp/wg_server_private.pem
-    SERVER_PRIVATE_KEY=$(openssl pkey -in /tmp/wg_server_private.pem -outform DER | tail -c 32 | base64)
-    SERVER_PUBLIC_KEY=$(openssl pkey -in /tmp/wg_server_private.pem -pubout -outform DER | tail -c 32 | base64)
-    rm -f /tmp/wg_server_private.pem
-    sed -i "s|your-private-key|${SERVER_PRIVATE_KEY}|g" ./wireguard/wg_confs/wg0.conf
-    echo "$SERVER_PUBLIC_KEY"  > ./wireguard/wg0.conf/server_public.key
-    chmod 644 ./wireguard/keys/server_public.key
-    
+    generate_password() { openssl rand -base64 12; }
+    generate_token()    { openssl rand -hex "${1:-32}"; }
+
+    WEBPASSWORD=$(generate_password)
+    REGISTRATION_TOKEN=$(generate_token 32)
+    SIDECAR_TOKEN=$(generate_token 32)
+
+    generate_wireguard_keys() {
+        local tmp_pem="/tmp/wg_server_private_$$.pem"
+
+        openssl genpkey -algorithm X25519 -out "$tmp_pem" 2>/dev/null \
+            || error "Failed to generate WireGuard private key."
+
+        SERVER_PRIVATE_KEY=$(openssl pkey -in "$tmp_pem" -outform DER | tail -c 32 | base64)
+        SERVER_PUBLIC_KEY=$(openssl pkey -in "$tmp_pem" -pubout -outform DER | tail -c 32 | base64)
+
+        rm -f "$tmp_pem"
+        log_success "WireGuard keypair generated."
+    }
+
+    install_wireguard_keys() {
+        local keys_dir="./wireguard/keys"
+        mkdir -p "$keys_dir"
+
+        sed -i "s|your-private-key|${SERVER_PRIVATE_KEY}|g" ./wireguard/wg_confs/wg0.conf \
+            || log_warn "Could not patch wg0.conf — file may not exist yet."
+
+        echo "$SERVER_PUBLIC_KEY" > "$keys_dir/server_public.key"
+        chmod 644 "$keys_dir/server_public.key"
+    }
+
+    generate_wireguard_keys
+    install_wireguard_keys
+
 # Configuration of reverse proxy(This section will only be used for secure communication during installation phase)
 
     NGINX_CONF="./nginx/nginx.conf"
     CERTS_DIR="./certs"
-    mkdir -p "$CERTS_DIR"
+
+    generate_self_signed_cert() {
+        local out_dir="${1:-./certs}"
+        local cn="${2:-localhost}"
+        mkdir -p "$out_dir"
 
         openssl req -x509 -nodes -days 365 \
             -newkey rsa:2048 \
-            -keyout "$CERTS_DIR/privkey.pem" \
-            -out "$CERTS_DIR/fullchain.pem" \
-            -subj "/CN=localhost"
+            -keyout "$out_dir/privkey.pem" \
+            -out    "$out_dir/fullchain.pem" \
+            -subj   "/CN=${cn}" 2>/dev/null \
+            || error "Failed to generate self-signed certificate."
 
-        echo "Self-signed certificates generated in $CERTS_DIR"
+        echo "Self-signed certificates generated in $out_dir"
+    }
 
+    configure_nginx() {
+        local conf="${1:-$NGINX_CONF}"
+        [ -f "$conf" ] || error "Nginx config not found: $conf"
 
-    sed -i -E "s#proxy_pass http://[^:]+:[0-9]+;#proxy_pass http://${IP_AUTH}:${PORT_AUTH};#" "$NGINX_CONF"
-    sed -i -E "s#server_name public_ip;#server_name $PUBLIC_IP;#" "$NGINX_CONF"
+        sed -i -E "s#proxy_pass http://[^:]+:[0-9]+;#proxy_pass http://${IP_AUTH}:${PORT_AUTH};#" "$conf"
+        sed -i -E "s#server_name public_ip;#server_name ${PUBLIC_IP};#" "$conf"
+    }
+
+    generate_self_signed_cert "$CERTS_DIR" "localhost"
+    configure_nginx "$NGINX_CONF"
+
 # Writing to .env file
-    > "$ENV_FILE"
-    chmod 600 "$ENV_FILE"
-    echo "SUBNET=$SUBNET"                         >> "$ENV_FILE"
-    echo "INTERNAL_SUBNET=$SUBNET"                >> "$ENV_FILE"
-    echo "DETECTED_TZ=$DETECTED_TZ"               >> "$ENV_FILE"
-    echo "IP_UNBOUND=$IP_UNBOUND"                 >> "$ENV_FILE"
-    echo "IP_PIHOLE=$IP_PIHOLE"                   >> "$ENV_FILE"
-    echo "IP_NGINX=$IP_NGINX"                     >> "$ENV_FILE"
-    echo "IP_WG=$IP_WG"                           >> "$ENV_FILE"
-    echo "IP_AUTH=$IP_AUTH"                       >> "$ENV_FILE"
-    echo "PORT_WG=$PORT_WG"                       >> "$ENV_FILE"
-    echo "PORT_AUTH=$PORT_AUTH"                   >> "$ENV_FILE"
-    echo "PUBLIC_IP=$PUBLIC_IP"                   >> "$ENV_FILE"
-    echo "WEBPASSWORD=$WEBPASSWORD"               >> "$ENV_FILE"
-    echo "REGISTRATION_TOKEN=$REGISTRATION_TOKEN" >> "$ENV_FILE"
-    echo "IP_SIDECAR=$IP_SIDECAR"                 >> "$ENV_FILE"
-    echo "PORT_SIDECAR=$PORT_SIDECAR"             >> "$ENV_FILE"
-    echo "SIDECAR_TOKEN=$SIDECAR_TOKEN"           >> "$ENV_FILE"
-# Composing containers
+    write_env_var() { echo "${1}=${2}" >> "$ENV_FILE"; }
 
+    write_env_file() {
+        : > "$ENV_FILE"
+        chmod 600 "$ENV_FILE"
+
+        write_env_var SUBNET               "$SUBNET"
+        write_env_var INTERNAL_SUBNET      "$INTERNAL_SUBNET"
+        write_env_var DETECTED_TZ          "$DETECTED_TZ"
+        write_env_var IP_WG                "$IP_WG"
+        write_env_var IP_UNBOUND           "$IP_UNBOUND"
+        write_env_var IP_PIHOLE            "$IP_PIHOLE"
+        write_env_var IP_NGINX             "$IP_NGINX"
+        write_env_var IP_AUTH              "$IP_AUTH"
+        write_env_var IP_SIDECAR           "$IP_SIDECAR"
+        write_env_var PORT_WG              "$PORT_WG"
+        write_env_var PORT_AUTH            "$PORT_AUTH"
+        write_env_var PORT_SIDECAR         "$PORT_SIDECAR"
+        write_env_var PUBLIC_IP            "$PUBLIC_IP"
+        write_env_var WEBPASSWORD          "$WEBPASSWORD"
+        write_env_var REGISTRATION_TOKEN   "$REGISTRATION_TOKEN"
+        write_env_var SIDECAR_TOKEN        "$SIDECAR_TOKEN"
+    }
+
+    write_env_file
+
+# Composing containers
     docker compose up -d --wait
+    COMPOSE_EXIT=$?
     echo "Waiting for app to be ready..."
-    until [ "$(docker compose ps --status running -q | wc -l)" -eq "$(docker compose ps -q | wc -l)" ]; do
-    sleep 2
-    done
+
+    wait_for_stack() {
+        local timeout="${1:-120}"
+        local elapsed=0
+
+        until [ "$(docker compose ps --status running -q | wc -l)" -eq \
+                "$(docker compose ps -q | wc -l)" ]; do
+            sleep 2
+            elapsed=$((elapsed + 2))
+            if [ "$elapsed" -ge "$timeout" ]; then
+                error "Timed out waiting for services after ${timeout}s. Run: docker compose logs"
+            fi
+        done
+    }
+
+    wait_for_stack 120
     echo "All services are up!"
     echo "App is ready!"
-    COMPOSE_EXIT=$?
     SERVER_PUBLIC_KEY=$(docker exec wireguard wg show wg0 public-key)
-    echo "SERVER_PUBLIC_KEY=$SERVER_PUBLIC_KEY" >> "$ENV_FILE"
+    write_env_var SERVER_PUBLIC_KEY "$SERVER_PUBLIC_KEY"
 
 # Check if anything wrong
     if [ $COMPOSE_EXIT -eq 0 ]; then
@@ -159,24 +229,32 @@
         exit 1
     fi
 
- 
-# Client scripts generation
 
+# Client scripts generation
     mkdir -p ./scripts
 
-    #Powershell scripting
-        SCRIPT_POWERSHELL='if ((Get-Command wireguard -ErrorAction SilentlyContinue) -or (Get-Command wg -ErrorAction SilentlyContinue)) {
-            Write-Output "WireGuard CLI is accessible."
-        } else {
-            Write-Output "Binary not found in PATH."
-        }'
+    inject_placeholders() {
+        local file="$1"
+        local shell="${2:-bash}"
 
-        echo $SCRIPT_POWERSHELL > setupclient.ps1
+        if [ "$shell" = "ps1" ]; then
+            sed -i "s|PLACEHOLDER_SERVER_PUBLIC_IP|${PUBLIC_IP}|g"    "$file"
+            sed -i "s|PLACEHOLDER_SERVER_PORT|${PORT_WG}|g"           "$file"
+            sed -i "s|PLACEHOLDER_PUBLIC_KEY|${SERVER_PUBLIC_KEY}|g"  "$file"
+            sed -i "s|PLACEHOLDER_INTERFACE_NAME|${INTERFACE_NAME}|g" "$file"
+            sed -i "s|PLACEHOLDER_AUTH_KEY|${REGISTRATION_TOKEN}|g"   "$file"
+        else
+            sed -i "s|PLACEHOLDER-PUBLIC-IP|${PUBLIC_IP}|g"           "$file"
+            sed -i "s|PLACEHOLDER-SERVER-PORT|${PORT_WG}|g"           "$file"
+            sed -i "s|PLACEHOLDER-PUBLIC-KEY|${SERVER_PUBLIC_KEY}|g"  "$file"
+            sed -i "s|PLACEHOLDER-INTERFACE-NAME|${INTERFACE_NAME}|g" "$file"
+            sed -i "s|PLACEHOLDER-AUTH_KEY|${REGISTRATION_TOKEN}|g"   "$file"
+        fi
+    }
 
-    #Bash scripting
-        SCRIPT_BASH="#!/bin/bash"
-        echo $SCRIPT_BASH > setupclient.sh
-        
-    chmod +x ./scripts/*
+    inject_placeholders "./scripts/setupclient.ps1" "ps1"
+    inject_placeholders "./scripts/setupclient.sh"  "bash"
+
+    chmod +x ./scripts/*.sh
 
 # Configuration of wireguard

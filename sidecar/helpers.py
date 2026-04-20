@@ -5,7 +5,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 bearer = HTTPBearer()
 
-def verify(creds: HTTPAuthorizationCredentials = Security(bearer)):
+def verify(creds: HTTPAuthorizationCredentials = Security(bearer)) -> None:
     if creds.credentials != SIDECAR_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid token")
     
