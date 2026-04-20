@@ -38,8 +38,6 @@ try_install_wireguard() {
     fi
 }
 
-
-
 # Check if WireGuard is installed
 
 #Rest of your configuration here

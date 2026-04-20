@@ -45,5 +45,6 @@ function TryToInstallWireguard() {
 }
 
 
+
 #Rest of the configuration
 ####This file is being used as a template
