@@ -1,38 +1,46 @@
-import os
-import requests;
 from typing import Any
-from fastapi import FastAPI, Security
-from helpers import verify, is_valid_wg_pubkey
+from fastapi import FastAPI, Security, HTTPException
 from pydantic import BaseModel, validator
-from fastapi import HTTPException
+from helpers import (
+    verify,
+    is_valid_wg_pubkey,
+    allocate_ip,
+    write_peer_conf,
+    generate_client_config,
+)
 
-
-#Variables
 app = FastAPI()
-ip_sidecar = os.environ["IP_SIDECAR"]
-port_sidecar = os.environ["PORT_SIDECAR"]
 
-#Models
+
 class PeerRequest(BaseModel):
-    public_key:str
+    public_key: str
+
     @validator("public_key")
-    def validate_public_key(cls, v:str) -> str | None:
+    def validate_public_key(cls, v: str) -> str:
         if not is_valid_wg_pubkey(v):
             raise ValueError("Invalid WireGuard public key")
         return v
-    
-#Routes
+
+
 @app.get("/health")
 def health_check() -> dict[str, str]:
-    try:
-        return {"status":"ok"}
-    except:
-        return {"status":"auth service is not ready"}
+    return {"status": "ok"}
 
-@app.get("/addnewpeer", dependencies=[Security(verify)])
+
+@app.post("/addnewpeer", dependencies=[Security(verify)])
 def add_peer(peer: PeerRequest) -> Any:
-    response = requests.post(  
-        f"http://{ip_sidecar}:{port_sidecar}/pubkey"
-        ,{"client_pub":peer.public_key}
-    )
-    return response.json()
+    try:
+        ip = allocate_ip()
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    try:
+        write_peer_conf(peer.public_key, ip)
+    except FileExistsError:
+        raise HTTPException(status_code=409, detail="Peer already registered")
+
+    return {
+        "status": "ok",
+        "ip": ip,
+        "config": generate_client_config(ip),
+    }

@@ -1,0 +1,6 @@
+FROM linuxserver/wireguard:latest
+
+RUN apk add --no-cache inotify-tools
+
+COPY peer-watcher.sh /custom-services.d/peer-watcher/run
+RUN chmod +x /custom-services.d/peer-watcher/run

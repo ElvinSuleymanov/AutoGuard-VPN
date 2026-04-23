@@ -237,8 +237,6 @@
 
         if [ "$shell" = "ps1" ]; then
             sed -i "s|PLACEHOLDER_SERVER_PUBLIC_IP|${PUBLIC_IP}|g"    "$file"
-            sed -i "s|PLACEHOLDER_SERVER_PORT|${PORT_WG}|g"           "$file"
-            sed -i "s|PLACEHOLDER_PUBLIC_KEY|${SERVER_PUBLIC_KEY}|g"  "$file"
             sed -i "s|PLACEHOLDER_INTERFACE_NAME|${INTERFACE_NAME}|g" "$file"
             sed -i "s|PLACEHOLDER_AUTH_KEY|${REGISTRATION_TOKEN}|g"   "$file"
         else
