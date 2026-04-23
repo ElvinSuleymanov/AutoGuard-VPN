@@ -11,8 +11,6 @@ echo -e "   🛡️  AUTOGUARD VPN CLIENT SETUP         "
 echo -e "==================================================${NC}"
 
 SERVER_IP="PLACEHOLDER-PUBLIC-IP"
-SERVER_PORT="PLACEHOLDER-SERVER-PORT"
-SERVER_PUBLIC_KEY="PLACEHOLDER-PUBLIC-KEY"
 INTERFACE_NAME="PLACEHOLDER-INTERFACE-NAME"
 AUTH_KEY="PLACEHOLDER-AUTH_KEY"
 
@@ -42,7 +40,7 @@ STATUS=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin);
 [ "$STATUS" = "ok" ] || error "Server rejected registration. Response: $RESPONSE"
 
 WG_CONFIG=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['config'])" 2>/dev/null)
-WG_CONFIG=$(echo "$WG_CONFIG" | sed "s|<PASTE_YOUR_PRIVATE_KEY_HERE>|${CLIENT_PRIVATE_KEY}|")
+WG_CONFIG="${WG_CONFIG//<PASTE_YOUR_PRIVATE_KEY_HERE>/${CLIENT_PRIVATE_KEY}}"
 
 WG_CONF="/etc/wireguard/${INTERFACE_NAME}.conf"
 mkdir -p /etc/wireguard

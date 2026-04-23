@@ -18,11 +18,9 @@
     IP_PIHOLE="172.29.144.30"
     IP_NGINX="172.29.144.40"
     IP_AUTH="172.29.144.50"
-    IP_SIDECAR="172.29.144.60"
     INTERNAL_SUBNET="10.13.26.0"
     PORT_WG="51820"
     PORT_AUTH="5000"
-    PORT_SIDECAR="6000"
     INTERFACE_NAME="wg0"
 
 # Checks whether docker installed or not
@@ -182,10 +180,8 @@
         write_env_var IP_PIHOLE            "$IP_PIHOLE"
         write_env_var IP_NGINX             "$IP_NGINX"
         write_env_var IP_AUTH              "$IP_AUTH"
-        write_env_var IP_SIDECAR           "$IP_SIDECAR"
         write_env_var PORT_WG              "$PORT_WG"
         write_env_var PORT_AUTH            "$PORT_AUTH"
-        write_env_var PORT_SIDECAR         "$PORT_SIDECAR"
         write_env_var PUBLIC_IP            "$PUBLIC_IP"
         write_env_var WEBPASSWORD          "$WEBPASSWORD"
         write_env_var REGISTRATION_TOKEN   "$REGISTRATION_TOKEN"
@@ -241,8 +237,6 @@
             sed -i "s|PLACEHOLDER_AUTH_KEY|${REGISTRATION_TOKEN}|g"   "$file"
         else
             sed -i "s|PLACEHOLDER-PUBLIC-IP|${PUBLIC_IP}|g"           "$file"
-            sed -i "s|PLACEHOLDER-SERVER-PORT|${PORT_WG}|g"           "$file"
-            sed -i "s|PLACEHOLDER-PUBLIC-KEY|${SERVER_PUBLIC_KEY}|g"  "$file"
             sed -i "s|PLACEHOLDER-INTERFACE-NAME|${INTERFACE_NAME}|g" "$file"
             sed -i "s|PLACEHOLDER-AUTH_KEY|${REGISTRATION_TOKEN}|g"   "$file"
         fi
