@@ -125,9 +125,10 @@
         mkdir -p "$keys_dir"
 
         local server_wg_ip="${INTERNAL_SUBNET%.*}.1"
-        sed -i "s|your-private-key|${SERVER_PRIVATE_KEY}|g" ./wireguard/wg_confs/wg0.conf \
-            && sed -i "s|your-server-address|${server_wg_ip}/24|g" ./wireguard/wg_confs/wg0.conf \
-            || log_warn "Could not patch wg0.conf — file may not exist yet."
+        if ! sed -i "s|your-private-key|${SERVER_PRIVATE_KEY}|g" ./wireguard/wg_confs/wg0.conf \
+           || ! sed -i "s|your-server-address|${server_wg_ip}/24|g" ./wireguard/wg_confs/wg0.conf; then
+            log_warn "Could not patch wg0.conf — file may not exist yet."
+        fi
 
         echo "$SERVER_PUBLIC_KEY" > "$keys_dir/server_public.key"
         chmod 644 "$keys_dir/server_public.key"
