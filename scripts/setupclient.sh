@@ -23,6 +23,16 @@ command -v wg      >/dev/null 2>&1 || error "wireguard-tools not installed. Run:
 command -v curl    >/dev/null 2>&1 || error "curl not installed."
 command -v python3 >/dev/null 2>&1 || error "python3 not installed."
 
+WG_CONF="/etc/wireguard/${INTERFACE_NAME}.conf"
+
+if [ -f "$WG_CONF" ]; then
+    echo "Config already exists. Bringing up existing tunnel..."
+    wg-quick up "$INTERFACE_NAME" 2>/dev/null || true
+    systemctl enable "wg-quick@${INTERFACE_NAME}" 2>/dev/null || true
+    log_success "VPN is active on interface ${INTERFACE_NAME}."
+    exit 0
+fi
+
 echo "🔑 Generating WireGuard keypair..."
 CLIENT_PRIVATE_KEY=$(wg genkey)
 CLIENT_PUBLIC_KEY=$(echo "$CLIENT_PRIVATE_KEY" | wg pubkey)
@@ -42,7 +52,6 @@ STATUS=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin);
 WG_CONFIG=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['config'])" 2>/dev/null)
 WG_CONFIG="${WG_CONFIG//<PASTE_YOUR_PRIVATE_KEY_HERE>/${CLIENT_PRIVATE_KEY}}"
 
-WG_CONF="/etc/wireguard/${INTERFACE_NAME}.conf"
 mkdir -p /etc/wireguard
 printf '%s\n' "$WG_CONFIG" > "$WG_CONF"
 chmod 600 "$WG_CONF"

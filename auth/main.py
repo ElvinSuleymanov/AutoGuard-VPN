@@ -39,8 +39,9 @@ def add_peer(peer: PeerRequest) -> Any:
     except FileExistsError:
         raise HTTPException(status_code=409, detail="Peer already registered")
 
-    return {
-        "status": "ok",
-        "ip": ip,
-        "config": generate_client_config(ip),
-    }
+    try:
+        config = generate_client_config(ip)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    return {"status": "ok", "ip": ip, "config": config}

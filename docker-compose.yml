@@ -27,12 +27,8 @@ services:
     ports:
       - "65231:80/tcp"
     hostname: pihole
-    dns:
-      - ${IP_UNBOUND}
-      - 127.0.0.1
     volumes:
       - ./etc-pihole/:/etc/pihole/
-      - ./etc-dnsmasq.d/:/etc/dnsmasq.d/
     cap_add:
       - NET_ADMIN
       - SYS_TIME
@@ -44,9 +40,9 @@ services:
       - .env
     environment:
       TZ: ${DETECTED_TZ}
-      WEBPASSWORD: ${WEBPASSWORD}
-      PIHOLE_DNS_: "${IP_UNBOUND}#5053"
-      DNSMASQ_LISTENING: single
+      FTLCONF_webserver_api_password: ${WEBPASSWORD}
+      FTLCONF_dns_upstreams: "${IP_UNBOUND}#5053"
+      FTLCONF_dns_listeningMode: all
     healthcheck:
       test: [
         "CMD-SHELL", 
@@ -115,6 +111,7 @@ services:
       - .env
     volumes:
       - ./peers:/app/peers
+      - ./wireguard/keys/server_public.key:/wg-keys/server_public.key:ro
     healthcheck:
       test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:${PORT_AUTH}/health\")'"]
       interval: 30s
@@ -123,7 +120,7 @@ services:
       start_period: 15s
 
   nginx-proxy:
-    image: nginx:latest
+    image: nginx:alpine 
     container_name: nginx_proxy
     restart: unless-stopped
     ports:

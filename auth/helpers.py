@@ -9,10 +9,11 @@ from fastapi.security import APIKeyHeader
 
 REGISTRATION_TOKEN = os.environ["REGISTRATION_TOKEN"]
 INTERNAL_SUBNET    = os.environ.get("INTERNAL_SUBNET", "10.13.26.0")
-SERVER_PUBLIC_KEY  = os.environ.get("SERVER_PUBLIC_KEY", "")
 PUBLIC_IP          = os.environ.get("PUBLIC_IP", "")
 PORT_WG            = os.environ.get("PORT_WG", "51820")
 IP_PIHOLE          = os.environ.get("IP_PIHOLE", "172.29.144.30")
+
+_PUBKEY_FILE = Path("/wg-keys/server_public.key")
 
 api_key_header = APIKeyHeader(name="X-Auth-Token")
 PEERS_DIR = Path("/app/peers")
@@ -66,14 +67,23 @@ def write_peer_conf(pubkey: str, ip: str) -> None:
     peer_file.chmod(0o600)
 
 
+def _server_public_key() -> str:
+    if _PUBKEY_FILE.exists():
+        key = _PUBKEY_FILE.read_text().strip()
+        if key:
+            return key
+    raise RuntimeError("Server public key not available yet")
+
+
 def generate_client_config(client_ip: str) -> str:
+    pubkey = _server_public_key()
     return (
         "[Interface]\n"
         "PrivateKey = <PASTE_YOUR_PRIVATE_KEY_HERE>\n"
         f"Address = {client_ip}/32\n"
         f"DNS = {IP_PIHOLE}\n\n"
         "[Peer]\n"
-        f"PublicKey = {SERVER_PUBLIC_KEY}\n"
+        f"PublicKey = {pubkey}\n"
         f"Endpoint = {PUBLIC_IP}:{PORT_WG}\n"
         "AllowedIPs = 0.0.0.0/0\n"
         "PersistentKeepalive = 25\n"

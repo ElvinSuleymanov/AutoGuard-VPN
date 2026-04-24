@@ -7,6 +7,9 @@ until wg show "${INTERFACE}" >/dev/null 2>&1; do
     sleep 1
 done
 
+mkdir -p /config/keys
+wg show "${INTERFACE}" public-key > /config/keys/server_public.key
+
 mkdir -p "${PEERS_DIR}"
 
 for f in "${PEERS_DIR}"/*.conf; do
