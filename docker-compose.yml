@@ -32,7 +32,6 @@ services:
       - 127.0.0.1
     volumes:
       - ./etc-pihole/:/etc/pihole/
-      - ./etc-dnsmasq.d/:/etc/dnsmasq.d/
     cap_add:
       - NET_ADMIN
       - SYS_TIME
@@ -44,9 +43,9 @@ services:
       - .env
     environment:
       TZ: ${DETECTED_TZ}
-      WEBPASSWORD: ${WEBPASSWORD}
-      PIHOLE_DNS_: "${IP_UNBOUND}#5053"
-      DNSMASQ_LISTENING: single
+      FTLCONF_webserver_api_password: ${WEBPASSWORD}
+      FTLCONF_dns_upstreams: "${IP_UNBOUND}#5053"
+      FTLCONF_dns_listeningMode: single
     healthcheck:
       test: [
         "CMD-SHELL", 
