@@ -1,88 +1,54 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Logo" height="400">
+  <img src="assets/logo.png" alt="AutoGuard VPN" height="160">
 </p>
 
-A self-hosted VPN stack with automated client registration, ad blocking, and recursive DNS — all containerized with Docker.
+<h3 align="center">AutoGuard VPN</h3>
+<p align="center">Self-hosted WireGuard VPN with automated peer registration, ad-blocking DNS, and recursive DNSSEC.</p>
+
+<p align="center">
+  <a href="https://autoguard-vpn.vercel.app">📖 Documentation</a> ·
+  <a href="https://autoguard-vpn.vercel.app/server-setup">Server Setup</a> ·
+  <a href="https://autoguard-vpn.vercel.app/client-setup">Client Setup</a> ·
+  <a href="https://autoguard-vpn.vercel.app/faq">FAQ</a>
+</p>
+
+---
+
+## What It Does
+
+AutoGuard VPN is a fully containerized VPN stack that runs on a single Docker host. Clients register themselves through a secure API — no manual peer editing required.
+
+- Zero-touch client onboarding via a single script (Linux & Windows)
+- Network-wide ad and tracker blocking through Pi-hole
+- Private recursive DNS with DNSSEC via Unbound — no Cloudflare or Google in the chain
+- Hot peer reload — new peers activate without restarting any container
+- Timing-safe token authentication on the registration endpoint
 
 ## Stack
 
 | Container | Image | Role |
 |---|---|---|
-| `wireguard` | linuxserver/wireguard | VPN server |
-| `wg-sidecar` | custom | Peer registration agent |
-| `auth-service` | custom | Client authentication |
-| `nginx-proxy` | nginx | TLS reverse proxy |
-| `pihole` | pihole/pihole | DNS-based ad & tracker blocking |
+| `wireguard` | custom | WireGuard VPN server |
+| `auth-service` | custom (FastAPI) | Peer registration API |
+| `nginx-proxy` | nginx:alpine | TLS reverse proxy |
+| `pihole` | pihole/pihole | Ad-blocking DNS |
 | `unbound` | mvance/unbound | Recursive DNS resolver |
 
-All services run on an isolated Docker bridge network (`172.29.144.0/24`).
-
----
-
-## Architecture
-
-### 🔧 Setup & Registration
-
-When a new client runs the setup script, the request flows through Nginx → Auth → wg-sidecar, which registers the peer directly into WireGuard from within its shared network namespace.
-
-![Setup phase](assets/setup_phase.svg)
-
-### 🌐 VPN Usage
-
-Once registered, the client connects directly to WireGuard over UDP. All DNS queries are filtered by Pi-hole and resolved recursively by Unbound — no third-party DNS provider involved.
-
-![Usage phase](assets/usage_phase.svg)
-
----
+All services run on an isolated Docker bridge network (`172.29.144.0/24`). WireGuard clients receive IPs in `10.13.26.0/24`.
 
 ## Quick Start
 
-### Prerequisites
-
-- Docker & Docker Compose
-- A Linux server with a public IP
-
-### Install
-
 ```bash
-git clone https://github.com/yourname/autoguard-vpn.git
-cd autoguard-vpn
+git clone https://github.com/ElvinSuleymanov/AutoGuard-VPN.git
+cd AutoGuard-VPN
 chmod +x setup.sh
 ./setup.sh
 ```
 
-The setup script will:
+After setup completes, copy `./scripts/setupclient.sh` (Linux) or `./scripts/setupclient.ps1` (Windows) to each client and run it as root/Administrator.
 
-1. Detect your public IP and timezone
-2. Generate secrets and write `.env`
-3. Spin up all containers with health checks
-4. Generate client setup scripts (`setupclient.ps1` / `setupclient.sh`)
+For full setup instructions, requirements, architecture details, and troubleshooting, see the **[documentation](https://autoguard-vpn.vercel.app)**.
 
-### Connect a client
+## License
 
-Run the generated script on your client device:
-
-```bash
-# Linux / macOS
-bash setupclient.sh
-
-# Windows (PowerShell)
-.\setupclient.ps1
-```
-
----
-
-## Configuration
-
-All settings are written to `.env` by the setup script. You can override defaults before running:
-
-| Variable | Default | Description |
-|---|---|---|
-| `PORT_WG` | `51820` | WireGuard UDP port |
-| `PORT_AUTH` | `5000` | Auth service port |
-| `PORT_SIDECAR` | `6000` | Sidecar port |
-| `IP_WG` | `172.29.144.10` | WireGuard container IP |
-| `IP_PIHOLE` | `172.29.144.30` | Pi-hole container IP |
-| `IP_UNBOUND` | `172.29.144.20` | Unbound container IP |
-
----
+[MIT](LICENSE)
