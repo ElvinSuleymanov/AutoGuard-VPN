@@ -52,7 +52,8 @@ function WriteConfig($Config, $PrivateKey) {
     $configPath = "$configDir\$InterfaceName.conf"
     New-Item -ItemType Directory -Force -Path $configDir | Out-Null
     $Config = $Config -replace "<PASTE_YOUR_PRIVATE_KEY_HERE>", $PrivateKey
-    Set-Content -Path $configPath -Value $Config -Encoding UTF8
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($configPath, $Config, $utf8NoBom)
     icacls $configPath /inheritance:r /grant:r "SYSTEM:(F)" /grant:r "Administrators:(F)" | Out-Null
     return $configPath
 }
@@ -63,19 +64,35 @@ function EnsureTunnelUp($ConfigPath) {
         exit 1
     }
 
+    $bytes = [System.IO.File]::ReadAllBytes($ConfigPath)
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        Write-Host "Stripping BOM from config..." -ForegroundColor Yellow
+        [System.IO.File]::WriteAllBytes($ConfigPath, $bytes[3..($bytes.Length - 1)])
+    }
+
     $svcName = "WireGuardTunnel`$$InterfaceName"
     $svc     = Get-Service -Name $svcName -ErrorAction SilentlyContinue
 
-    if ($svc) {
-        if ($svc.Status -ne "Running") {
-            try { Start-Service -Name $svcName -ErrorAction Stop }
-            catch { Write-Host "Service start failed: $_" -ForegroundColor Yellow }
-        }
-    } else {
+    if (-not $svc) {
         & $WgGui /installtunnelservice $ConfigPath
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "Tunnel service install failed (exit $LASTEXITCODE)." -ForegroundColor Red
+            Write-Host "Tunnel install failed (exit $LASTEXITCODE)." -ForegroundColor Red
             exit 1
+        }
+    } elseif ($svc.Status -ne "Running") {
+        try { Start-Service -Name $svcName -ErrorAction Stop }
+        catch {
+            Write-Host "Service won't start, reinstalling..." -ForegroundColor Yellow
+            & $WgGui /uninstalltunnelservice $InterfaceName | Out-Null
+            $deadline = (Get-Date).AddSeconds(15)
+            while ((Get-Service -Name $svcName -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+                Start-Sleep -Milliseconds 500
+            }
+            & $WgGui /installtunnelservice $ConfigPath
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Reinstall failed (exit $LASTEXITCODE)." -ForegroundColor Red
+                exit 1
+            }
         }
     }
 
@@ -101,8 +118,19 @@ Write-Host "=================================================" -ForegroundColor 
 CheckWireGuard
 
 $configPath = "C:\ProgramData\WireGuard\$InterfaceName.conf"
+$endpointPattern = "Endpoint\s*=\s*" + [regex]::Escape($ServerPublicIp) + "\s*:"
+
 if (Test-Path $configPath) {
-    Write-Host "Config already exists. Bringing up existing tunnel..." -ForegroundColor Yellow
+    $existing = Get-Content $configPath -Raw -ErrorAction SilentlyContinue
+    if ($existing -notmatch $endpointPattern) {
+        Write-Host "$InterfaceName.conf belongs to another VPN. Installing AutoGuard as 'autoguard' instead." -ForegroundColor Yellow
+        $InterfaceName = "autoguard"
+        $configPath    = "C:\ProgramData\WireGuard\$InterfaceName.conf"
+    }
+}
+
+if (Test-Path $configPath) {
+    Write-Host "AutoGuard config already exists. Bringing up existing tunnel..." -ForegroundColor Yellow
     EnsureTunnelUp -ConfigPath $configPath
     Write-Host "VPN is active on interface $InterfaceName." -ForegroundColor Green
     exit 0
