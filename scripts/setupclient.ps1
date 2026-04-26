@@ -84,6 +84,20 @@ function StripBomIfPresent($Path) {
     }
 }
 
+function VerifyHandshake($Name) {
+    Write-Host "Verifying handshake (up to 15s)..." -ForegroundColor Cyan
+    $deadline = (Get-Date).AddSeconds(15)
+    while ((Get-Date) -lt $deadline) {
+        $line = & $WgExe show $Name latest-handshakes 2>$null | Select-Object -First 1
+        if ($line) {
+            $epoch = ($line -split '\s+')[-1]
+            if ($epoch -match '^\d+$' -and [int64]$epoch -gt 0) { return $true }
+        }
+        Start-Sleep -Seconds 1
+    }
+    return $false
+}
+
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host "   AUTOGUARD VPN CLIENT SETUP                   " -ForegroundColor Cyan
 Write-Host "=================================================" -ForegroundColor Cyan
@@ -104,6 +118,14 @@ if ($existing) {
     } elseif ($svc.Status -ne "Running") {
         try { Start-Service -Name $svcName -ErrorAction Stop }
         catch { Write-Host "Could not start service: $_" -ForegroundColor Yellow }
+    }
+
+    if (-not (VerifyHandshake $existing)) {
+        Write-Host "Handshake never completed for '$existing'." -ForegroundColor Red
+        Write-Host "Stopping the tunnel so it doesn't blackhole your internet." -ForegroundColor Yellow
+        Stop-Service $svcName -ErrorAction SilentlyContinue
+        Write-Host "Check server-side: docker exec wireguard wg show wg0" -ForegroundColor Yellow
+        exit 1
     }
 
     Start-Process $WgGui
@@ -136,6 +158,17 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Start-Sleep -Seconds 2
+
+if (-not (VerifyHandshake $InterfaceName)) {
+    Write-Host "Tunnel installed but handshake never completed." -ForegroundColor Red
+    Write-Host "Stopping the tunnel so it doesn't blackhole your internet." -ForegroundColor Yellow
+    Stop-Service "WireGuardTunnel`$$InterfaceName" -ErrorAction SilentlyContinue
+    Write-Host "On the server run: docker exec wireguard wg show wg0" -ForegroundColor Yellow
+    Write-Host "Your peer pubkey: $($Keys.Public)" -ForegroundColor Yellow
+    Write-Host "If it's missing from that output, the server-side peer-watcher didn't load your peer." -ForegroundColor Yellow
+    exit 1
+}
+
 Start-Process $WgGui
-Write-Host "VPN '$InterfaceName' is configured and active." -ForegroundColor Green
+Write-Host "VPN '$InterfaceName' is configured, handshake completed, traffic flowing." -ForegroundColor Green
 Write-Host "From now on, toggle on/off from the WireGuard GUI." -ForegroundColor Green
